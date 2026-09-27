@@ -19,8 +19,8 @@ interface GithubIssuePayload {
   action?: string;
   issue?: { number: number; pull_request?: unknown };
   pull_request?: { number: number };
-  comment?: { body?: string; author_association?: string };
-  review?: { body?: string; author_association?: string };
+  comment?: { body?: string; author_association?: string; user?: { login?: string } };
+  review?: { body?: string; author_association?: string; user?: { login?: string } };
   sender?: { login?: string };
   repository?: { name: string; owner: { login: string } };
 }
@@ -156,10 +156,11 @@ export function webhooksRoute({ db, getConfig, scheduler }: Args): Hono {
     // Comments / reviews from outside the repo do not wake the agent; the lanes
     // apply the same filter when they read the thread.
     const association = payload.comment?.author_association ?? payload.review?.author_association;
+    const commentAuthor = payload.comment?.user?.login ?? payload.review?.user?.login;
     const { isTrustedCommentAuthor } = await import("../lanes/messages.js");
     if (
       (payload.comment || payload.review) &&
-      !isTrustedCommentAuthor(association, repoCfg.trusted_comment_associations)
+      !isTrustedCommentAuthor({ author: commentAuthor, authorAssociation: association }, repoCfg)
     ) {
       return c.json({
         status: "ignored",

@@ -131,7 +131,7 @@ export async function runPrDialog(input: PrDialogInput): Promise<PrDialogResult>
       (c) =>
         new Date(c.createdAt).getTime() > parseSqliteUtc(since).getTime() &&
         !repo.pr_dialog_skip_authors.includes(c.author) &&
-        isTrustedCommentAuthor(c.authorAssociation, repo.trusted_comment_associations) &&
+        isTrustedCommentAuthor(c, repo) &&
         !isBotMessage(c.body),
     );
     if (newFeedback.length === 0) {

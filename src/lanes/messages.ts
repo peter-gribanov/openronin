@@ -23,19 +23,30 @@ export function isBotMessage(text: string): boolean {
 // Who may steer the agent through comments. Anyone can comment on a PR in a
 // public repo, and pr_dialog / analyze feed comment text straight into an
 // agent prompt that runs with git-write tools — so by default only the repo's
-// own people count. `null` in config disables the filter (legacy behaviour).
+// own people count, plus explicitly listed logins (e.g. a review bot such as
+// `claude[bot]`, whose association is NONE). `null` associations in config
+// disables the filter (legacy behaviour).
 export const DEFAULT_TRUSTED_COMMENT_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
 
+export interface TrustPolicy {
+  trusted_comment_associations?: readonly string[] | null;
+  trusted_comment_authors?: readonly string[];
+}
+
 export function isTrustedCommentAuthor(
-  association: string | undefined,
-  trusted: readonly string[] | null | undefined,
+  comment: { author?: string; authorAssociation?: string },
+  policy: TrustPolicy,
 ): boolean {
+  const trusted = policy.trusted_comment_associations;
   if (trusted === null || trusted === undefined) return true;
+  if (comment.author && (policy.trusted_comment_authors ?? []).includes(comment.author)) {
+    return true;
+  }
   // Providers that do not expose an association (GitLab, trackers) are not
   // filtered: there is nothing to decide on, and dropping every comment would
   // silently break them.
-  if (association === undefined) return true;
-  return trusted.includes(association.toUpperCase());
+  if (comment.authorAssociation === undefined) return true;
+  return trusted.includes(comment.authorAssociation.toUpperCase());
 }
 
 export function withPrefix(text: string): string {

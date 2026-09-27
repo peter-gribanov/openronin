@@ -171,6 +171,10 @@ export const RepoConfigSchema = z.object({
     .array(z.string().transform((s) => s.toUpperCase()))
     .nullable()
     .default(["OWNER", "MEMBER", "COLLABORATOR"]),
+  // Logins trusted regardless of association — e.g. a review bot (`claude[bot]`)
+  // whose comments pr_dialog is expected to act on. `[bot]` logins belong to
+  // GitHub Apps and cannot be registered by ordinary users.
+  trusted_comment_authors: z.array(z.string()).default([]),
   // Auto-merge (L4.5) — opt-in. When enabled, after a successful pushed
   // iteration with no open agent questions, the system checks PR state
   // (mergeable, no unresolved threads, CI green) and merges + closes.

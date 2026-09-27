@@ -151,6 +151,8 @@ pr_dialog_skip_authors: [openronin[bot], dependabot[bot]]
 # comment text goes into a git-write agent prompt. `null` disables the filter.
 # Providers without author_association (GitLab, trackers) are not filtered.
 trusted_comment_associations: [OWNER, MEMBER, COLLABORATOR]
+# Logins trusted regardless of association, e.g. a review bot whose association is NONE.
+trusted_comment_authors: [claude[bot]]
 
 # Auto-merge (L4.5, opt-in)
 auto_merge:

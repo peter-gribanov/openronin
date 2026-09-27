@@ -93,7 +93,7 @@ async function pollOurPrs(
         (c) =>
           new Date(c.createdAt).getTime() > parseSqliteUtc(since).getTime() &&
           !repo.pr_dialog_skip_authors.includes(c.author) &&
-          isTrustedCommentAuthor(c.authorAssociation, repo.trusted_comment_associations) &&
+          isTrustedCommentAuthor(c, repo) &&
           !isBotMessage(c.body),
       ).length;
 
