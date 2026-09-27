@@ -12,26 +12,50 @@ import { join } from "node:path";
 test("isTrustedCommentAuthor: default set accepts repo people only", async () => {
   const { isTrustedCommentAuthor, DEFAULT_TRUSTED_COMMENT_ASSOCIATIONS } =
     await import("../dist/lanes/messages.js");
-  const trusted = DEFAULT_TRUSTED_COMMENT_ASSOCIATIONS;
-  assert.equal(isTrustedCommentAuthor("OWNER", trusted), true);
-  assert.equal(isTrustedCommentAuthor("MEMBER", trusted), true);
-  assert.equal(isTrustedCommentAuthor("COLLABORATOR", trusted), true);
-  assert.equal(isTrustedCommentAuthor("collaborator", trusted), true);
-  assert.equal(isTrustedCommentAuthor("CONTRIBUTOR", trusted), false);
-  assert.equal(isTrustedCommentAuthor("FIRST_TIME_CONTRIBUTOR", trusted), false);
-  assert.equal(isTrustedCommentAuthor("NONE", trusted), false);
+  const policy = { trusted_comment_associations: DEFAULT_TRUSTED_COMMENT_ASSOCIATIONS };
+  const ok = (a) => isTrustedCommentAuthor({ author: "x", authorAssociation: a }, policy);
+  assert.equal(ok("OWNER"), true);
+  assert.equal(ok("MEMBER"), true);
+  assert.equal(ok("COLLABORATOR"), true);
+  assert.equal(ok("collaborator"), true);
+  assert.equal(ok("CONTRIBUTOR"), false);
+  assert.equal(ok("FIRST_TIME_CONTRIBUTOR"), false);
+  assert.equal(ok("NONE"), false);
+});
+
+test("isTrustedCommentAuthor: listed logins pass regardless of association", async () => {
+  const { isTrustedCommentAuthor } = await import("../dist/lanes/messages.js");
+  const policy = {
+    trusted_comment_associations: ["OWNER"],
+    trusted_comment_authors: ["claude[bot]"],
+  };
+  assert.equal(
+    isTrustedCommentAuthor({ author: "claude[bot]", authorAssociation: "NONE" }, policy),
+    true,
+  );
+  assert.equal(
+    isTrustedCommentAuthor({ author: "stranger", authorAssociation: "NONE" }, policy),
+    false,
+  );
 });
 
 test("isTrustedCommentAuthor: null disables the filter, unknown association passes", async () => {
   const { isTrustedCommentAuthor } = await import("../dist/lanes/messages.js");
-  assert.equal(isTrustedCommentAuthor("NONE", null), true);
-  assert.equal(isTrustedCommentAuthor(undefined, ["OWNER"]), true);
+  assert.equal(
+    isTrustedCommentAuthor({ authorAssociation: "NONE" }, { trusted_comment_associations: null }),
+    true,
+  );
+  assert.equal(
+    isTrustedCommentAuthor({ author: "x" }, { trusted_comment_associations: ["OWNER"] }),
+    true,
+  );
 });
 
 test("config: trusted_comment_associations defaults to OWNER/MEMBER/COLLABORATOR", async () => {
   const { RepoConfigSchema } = await import("../dist/config/schema.js");
   const parsed = RepoConfigSchema.parse({ owner: "o", name: "n" });
   assert.deepEqual(parsed.trusted_comment_associations, ["OWNER", "MEMBER", "COLLABORATOR"]);
+  assert.deepEqual(parsed.trusted_comment_authors, []);
 
   const disabled = RepoConfigSchema.parse({
     owner: "o",
@@ -87,6 +111,7 @@ const baseRepo = {
   patch_trigger_label: undefined,
   pr_dialog_skip_authors: [],
   trusted_comment_associations: ["OWNER", "MEMBER", "COLLABORATOR"],
+  trusted_comment_authors: [],
   auto_merge: { enabled: false },
   protected_labels: [],
   language_for_communication: "English",
@@ -133,6 +158,14 @@ test("reconcile: feedback from an untrusted author does not enqueue pr_dialog", 
 
 test("reconcile: feedback from a collaborator enqueues pr_dialog", async () => {
   const result = await pollWith([comment("maintainer", "COLLABORATOR")]);
+  assert.equal(result.pr_enqueued, 1);
+});
+
+test("reconcile: feedback from a trusted review bot enqueues pr_dialog", async () => {
+  const result = await pollWith([comment("claude[bot]", "NONE")], {
+    ...baseRepo,
+    trusted_comment_authors: ["claude[bot]"],
+  });
   assert.equal(result.pr_enqueued, 1);
 });
 

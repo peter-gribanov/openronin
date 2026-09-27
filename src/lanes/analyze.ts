@@ -75,7 +75,7 @@ export async function runAnalyze(input: AnalyzeInput): Promise<AnalyzeResult> {
     // Untrusted authors are dropped before anything else: their text must not
     // reach the prompt, not even as a spoofed "previous bot reply".
     allComments = (await provider.listAllPrFeedback(ackRef, item.number)).filter((c) =>
-      isTrustedCommentAuthor(c.authorAssociation, repo.trusted_comment_associations),
+      isTrustedCommentAuthor(c, repo),
     );
     humanComments = allComments.filter((c) => !isBotMessage(c.body));
   } catch {
