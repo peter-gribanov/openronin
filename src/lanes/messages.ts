@@ -20,6 +20,24 @@ export function isBotMessage(text: string): boolean {
   return trimmed.startsWith(BOT_PREFIX) || text.includes("<!-- openronin:bot -->");
 }
 
+// Who may steer the agent through comments. Anyone can comment on a PR in a
+// public repo, and pr_dialog / analyze feed comment text straight into an
+// agent prompt that runs with git-write tools — so by default only the repo's
+// own people count. `null` in config disables the filter (legacy behaviour).
+export const DEFAULT_TRUSTED_COMMENT_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
+
+export function isTrustedCommentAuthor(
+  association: string | undefined,
+  trusted: readonly string[] | null | undefined,
+): boolean {
+  if (trusted === null || trusted === undefined) return true;
+  // Providers that do not expose an association (GitLab, trackers) are not
+  // filtered: there is nothing to decide on, and dropping every comment would
+  // silently break them.
+  if (association === undefined) return true;
+  return trusted.includes(association.toUpperCase());
+}
+
 export function withPrefix(text: string): string {
   return text.startsWith(BOT_PREFIX) ? text : `${BOT_PREFIX} ${text}`;
 }
