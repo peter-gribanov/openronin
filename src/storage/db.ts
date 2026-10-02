@@ -499,4 +499,15 @@ function applyMigrationsInner(db: Db): void {
       "INSERT INTO schema_version (version, applied_at) VALUES (22, datetime('now'))",
     ).run();
   }
+
+  // v23 — "re-run after the current run" flag. With several drain slots per
+  // repo, enqueue() must not flip a RUNNING task back to pending (another
+  // slot would run it in parallel); it sets this flag instead and markDone()
+  // re-queues the task when the run finishes.
+  if (current < 23) {
+    db.exec(`ALTER TABLE tasks ADD COLUMN rerun_requested INTEGER NOT NULL DEFAULT 0;`);
+    db.prepare(
+      "INSERT INTO schema_version (version, applied_at) VALUES (23, datetime('now'))",
+    ).run();
+  }
 }
