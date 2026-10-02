@@ -174,3 +174,54 @@ test("runs: peak memory is stored and aggregated per repo/lane", async () => {
     rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test("enqueue: a running task is not re-queued in parallel, it re-runs after finishing", async () => {
+  const tmp = mkdtempSync(join(tmpdir(), "openronin-rerun-"));
+  try {
+    const { initDb } = await import("../dist/storage/db.js");
+    const { ensureRepo, upsertTask } = await import("../dist/storage/tasks.js");
+    const { dequeue, enqueue, markDone, markError } = await import("../dist/scheduler/queue.js");
+    const db = initDb(tmp);
+    const repoId = ensureRepo(db, { provider: "github", owner: "o", name: "n" });
+    const taskId = upsertTask(db, repoId, "850", "pull_request");
+    const row = () => db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId);
+
+    assert.equal(dequeue(db, undefined, { repoId })?.id, taskId);
+    // A webhook (new PR comment) arrives while the task is running.
+    enqueue(db, taskId, "high", null);
+    assert.equal(row().status, "running", "running task stays running");
+    assert.equal(row().rerun_requested, 1);
+    assert.equal(dequeue(db, undefined, { repoId }), undefined, "no second slot can claim it");
+
+    // Run finishes → straight back to the head of the queue, flag cleared.
+    markDone(db, taskId, "2999-01-01T00:00:00.000Z");
+    assert.equal(row().status, "pending");
+    assert.equal(row().next_due_at, null);
+    assert.equal(row().priority, "high");
+    assert.equal(row().rerun_requested, 0);
+
+    // Without a re-run request markDone behaves as before.
+    assert.equal(dequeue(db, undefined, { repoId })?.id, taskId);
+    markDone(db, taskId, "2999-01-01T00:00:00.000Z");
+    assert.equal(row().status, "done");
+    assert.equal(row().next_due_at, "2999-01-01T00:00:00.000Z");
+
+    // A failed run keeps its retry delay (may be a rate-limit cooldown).
+    enqueue(db, taskId, "high", null);
+    assert.equal(dequeue(db, undefined, { repoId })?.id, taskId);
+    enqueue(db, taskId, "high", null);
+    markError(db, taskId, "boom", 60_000);
+    assert.equal(row().status, "pending");
+    assert.notEqual(row().next_due_at, null, "retry delay kept");
+    assert.equal(row().rerun_requested, 0);
+
+    // A task that is not running is enqueued exactly as before.
+    db.prepare("UPDATE tasks SET status = 'done' WHERE id = ?").run(taskId);
+    enqueue(db, taskId, "normal", null);
+    assert.equal(row().status, "pending");
+    assert.equal(row().rerun_requested, 0);
+    db.close();
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});

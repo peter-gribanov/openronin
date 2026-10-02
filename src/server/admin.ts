@@ -190,7 +190,8 @@ export function adminRoute({ db, getConfig, scheduler, startedAt }: Args): Hono 
                 priority = 'high',
                 next_due_at = NULL,
                 last_error = NULL
-          WHERE last_error LIKE '%rate limit%' OR last_error LIKE '%RateLimited%'`,
+          WHERE (last_error LIKE '%rate limit%' OR last_error LIKE '%RateLimited%')
+            AND status != 'running'`,
       )
       .run();
     return c.html(

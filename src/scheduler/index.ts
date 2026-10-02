@@ -85,6 +85,7 @@ export function recoverStuckTasks(
           SET status = 'pending',
               priority = 'high',
               next_due_at = NULL,
+              rerun_requested = 0,
               last_error = substr(
                 COALESCE(last_error || ' | ', '') || '[crash recovery: was running at shutdown]',
                 1, 1024
