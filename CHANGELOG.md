@@ -4,7 +4,7 @@ All notable changes to **openronin** are documented here. The format follows [Ke
 
 ## [Unreleased]
 
-### Added — parallel drain slots per repo + peak-memory metering
+### Added — parallel drain slots per repo + peak-memory metering (issue #119)
 
 - **`scheduler.max_workers_per_repo`** (global, default `1`) and per-repo **`max_workers`** let several tasks of the *same* repo run concurrently. Before, each watched repo had exactly one drain worker, so a busy repo queued everything behind the task in flight while other repos ran in parallel. Slots are safe to run side by side: `dequeue()` claims a task atomically, every run works in its own per-task clone, and the patch lane already skips an issue that has an active PR, so an issue run and its PR's `pr_dialog` run never write the same branch. Extra slots open only when there is due work for them; an idle repo still gets one slot per tick exactly as before. The value is hot-reloaded; lowering it lets in-flight slots finish and simply stops opening new ones.
 - **Peak memory per engine run.** The Claude Code engine samples the PSS of its process tree (the CLI plus everything the agent runs: test suites, static analysers, builds) from `/proc` every 2s and records the peak in the new `runs.peak_mem_bytes` column (**schema v22**). It is recorded for failed runs too, and shown as `peak_mem=` in the `[run:N]` log line and `mem=` in `runs:list`. Linux-only; `NULL` elsewhere and for engines that don't spawn a local process.
