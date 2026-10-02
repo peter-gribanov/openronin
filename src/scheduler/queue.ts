@@ -71,6 +71,20 @@ export function dequeue(
   return tx();
 }
 
+// Number of due pending tasks for one repo — lets the scheduler start only
+// as many parallel drain slots as there is work for.
+export function countDue(db: Db, repoId: number, now = new Date()): number {
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM tasks
+        WHERE status = 'pending'
+          AND (next_due_at IS NULL OR next_due_at <= ?)
+          AND repo_id = ?`,
+    )
+    .get(now.toISOString(), repoId) as { n: number };
+  return row.n;
+}
+
 export function markDone(db: Db, taskId: number, nextDueAt: string | null): void {
   db.prepare(
     "UPDATE tasks SET status = 'done', last_run_at = datetime('now'), next_due_at = ?, last_error = NULL WHERE id = ?",
