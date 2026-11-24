@@ -216,7 +216,7 @@ ${stored.expanded_requirements}`;
         userPrompt,
         workdir,
         tools: "git-write",
-        timeoutMs: input.timeoutMs ?? 30 * 60 * 1000,
+        timeoutMs: input.timeoutMs ?? 60 * 60 * 1000,
         maxBudgetUsd: ctx.config.global.cost_caps.per_task_usd,
       },
     });
